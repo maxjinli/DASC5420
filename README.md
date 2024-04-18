@@ -15,13 +15,13 @@ The traditional approach in feature selection often overlooks the uncertainty as
 
     /DASC5420
     │
-    ├── data/                   
+    ├── Data/                   
     │   └── red_wine_scaled.csv         # Proprocessed data    
     │
-    ├── notebooks/              
+    ├── Notebooks/              
     │   └── Model_Training.ipynb        # Project notebook 
     │
-    ├── results/                
+    ├── Results/                
     │   ├── traceplots/ 
     │   │   ├── beta_trace.png          # Traceplots of beta
     │   │   └── betagamma_trace.png     # Traceplots of beta*gamma
