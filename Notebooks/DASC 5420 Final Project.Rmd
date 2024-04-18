@@ -1,0 +1,425 @@
+---
+title: "DASC 5420"
+author: "Max Li - T00734084"
+date: "2024-04-10"
+output: pdf_document
+---
+
+# 1. Importing Libraries
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+library(ISLR)
+library(dplyr)
+library(tidyr)
+library(coda)
+library(reshape)
+library(stats4)
+library(MCMCpack)
+library(ggplot2)
+library(MASS)
+library(Matrix)
+library(knitr)
+library(readr)
+library(caret)
+library(magrittr)
+```
+
+# 2. Preparing Data
+
+## 2.1 Load and inspect data
+```{r}
+data_red = read.table("winequality-red.csv", header = TRUE, stringsAsFactors = FALSE, sep = ";")
+str(data_red)
+```
+
+
+## 2.2 Check missing values
+
+```{r}
+# Nan Detection
+na_counts <- sapply(data_red, function(x) sum(is.na(x)))
+print(na_counts)
+```
+
+## 2.3 Check outliers in each variable
+
+```{r}
+# Outlier Detection
+outliers_counts <- function(x) {
+  q1 <- quantile(x, 0.25)
+  q3 <- quantile(x, 0.75)
+  iqr <- q3 - q1
+  sum(x < (q1 - 1.5 * iqr) | x > (q3 + 1.5 * iqr))
+}
+
+sapply(data_red, outliers_counts)
+```
+## 2.4 Cap outliers
+
+```{r}
+cap_outliers <- function(x) {
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  x[x < lower_bound] <- lower_bound
+  x[x > upper_bound] <- upper_bound
+  
+  return(x)
+}
+
+red_wine_capped <- data_red
+
+# Apply the cap_outliers function to each column except for 'quality'
+for (col_name in names(red_wine_capped)) {
+  if (col_name != "quality" && is.numeric(red_wine_capped[[col_name]])) {
+    red_wine_capped[[col_name]] <- cap_outliers(red_wine_capped[[col_name]])
+  }
+}
+
+# Check outliers again
+sapply(red_wine_capped, outliers_counts)
+```
+
+## 2.5 Feature scaling
+
+```{r}
+red_wine_scaled <- red_wine_capped
+red_wine_scaled[-ncol(red_wine_scaled)] <- scale(red_wine_capped[-ncol(red_wine_capped)])
+
+# To dataframe
+red_wine_scaled <- as.data.frame(red_wine_scaled)
+
+# Keep names and make quality as factor
+names(red_wine_scaled) <- names(red_wine_capped)
+red_wine_scaled$quality <- as.factor(red_wine_scaled$quality)
+
+
+str(red_wine_scaled)
+```
+## 2.6 Transform response variable to binary
+
+```{r}
+red_wine_scaled$quality <- as.numeric(as.character(red_wine_scaled$quality))
+red_wine_scaled$quality <- ifelse(red_wine_scaled$quality >= 6, 'high', 'low')
+
+red_wine_scaled$quality <- as.factor(red_wine_scaled$quality)
+str(red_wine_scaled)
+```
+# 3. Classification Model
+
+## 3.1 Conventional logistic regression
+
+### 3.1.1 Fiting a single model
+
+```{r}
+set.seed(5420)
+
+indices <- createDataPartition(red_wine_scaled$quality, p = 0.8, list = FALSE)
+train_data <- red_wine_scaled[indices, ]
+test_data <- red_wine_scaled[-indices, ]
+
+# Fit logistic regression model
+logistic_model <- glm(quality ~ ., data = train_data, family = binomial)
+
+# Predict on test data
+predictions <- predict(logistic_model, newdata = test_data, type = "response")
+predicted_classes <- ifelse(predictions > 0.5, "low", "high")
+actual_classes <- test_data$quality
+
+# Compute confusion matrix
+confusion_matrix <- table(Predicted = predicted_classes, Actual = actual_classes)
+print(confusion_matrix)
+```
+
+### 3.1.2 5-fold CV
+
+```{r}
+set.seed(5420)
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit logistic regression model
+cv_logistic_model <- train(quality ~ ., data = red_wine_scaled, method = "glm", 
+                           family = binomial, trControl = train_control)
+
+# Summarize the results
+print(cv_logistic_model)
+```
+```{r}
+str(red_wine_scaled)
+```
+```{r}
+# write.csv(red_wine_scaled, file = "red_wine_scaled.csv", row.names = FALSE)
+red_wine_scaled <- read_csv("red_wine_scaled.csv")
+```
+
+
+## 3.2 Bayesian update algorithm
+
+```{r}
+data <- read.csv("red_wine_scaled.csv", header = TRUE, stringsAsFactors = FALSE)
+
+# Assuming the quality is the last column and is binary ('high', 'low')
+y <- ifelse(data[, 'quality'] == 'high', 1, 0)  # Replace 'quality' with the actual column name if different
+
+X <- data[, -ncol(data)] %>% as.matrix() %>% scale()
+
+logit = function(p) {log(p/(1-p))} 
+expit = function(x) {exp(x)/(1+exp(x))}
+# need this fix function for situation like:
+# 0 = log(0^0) = 0*log(0) producing NaN and NA 
+fix = function(x) {
+ind = is.nan(x)|is.na(x) 
+x[ind] = 0
+x
+}
+update_beta0 = function(gamma, beta, beta0) {
+  beta0_p = rnorm(1, beta0, sd = 2) # propose beta0
+  pi = expit(beta0 + as.matrix(X[,gamma==1]) %*% beta[gamma==1]) # pi_original
+  pi_p = expit(beta0_p + as.matrix(X[,gamma==1]) %*% beta[gamma==1]) # pi_proposed
+  log_a = sum(fix(y*log(pi_p))+fix((1-y)*log(1-pi_p))) + dnorm(beta0_p, mean=0, sd=1, log=TRUE) 
+  log_b = sum(fix(y*log(pi))+fix((1-y)*log(1-pi))) + dnorm(beta0, mean=0, sd=1, log=TRUE) 
+  log_r = log_a - log_b
+u = runif(1)
+beta0_new = ifelse(log(u)<log_r, beta0_p, beta0)
+return(beta0_new)
+}
+
+update_beta = function(gamma, beta, beta0) {
+  p = length(beta)
+# for code simplicity, treat beta_gamma, beta_{-gamma} as the same 
+  for(j in 1:p) {
+    beta_p = beta
+    beta_p[j] = rnorm(1, beta[j], sd = 1) # proposal beta
+    pi = expit(beta0 + as.matrix(X[,gamma==1]) %*% beta[gamma==1]) # pi_original
+    pi_p = expit(beta0 + as.matrix(X[,gamma==1]) %*% beta_p[gamma==1]) # pi_proposed
+    log_a = sum(fix(y*log(pi_p))+fix((1-y)*log(1-pi_p))) + dnorm(beta_p[j], mean=0, sd=1, log=TRUE)
+    log_b = sum(fix(y*log(pi))+fix((1-y)*log(1-pi))) + dnorm(beta[j], mean=0, sd=1, log=TRUE) 
+    log_r = log_a - log_b
+    log_r
+    u = runif(1)
+    beta[j] = ifelse(log(u)<log_r, beta_p[j], beta[j])
+  }
+  return(beta) 
+}
+
+update_gamma = function(gamma, beta, beta0) {
+  # randomly choose update order
+  p = length(gamma) 
+  for(j in sample(p)) {
+    gamma_a = gamma_b = gamma 
+    gamma_a[j] = 1 # for numerator 
+    gamma_b[j] = 0 # for denominator
+    pi_a = expit(beta0 + as.matrix(X[,gamma_a==1]) %*% beta[gamma_a==1]) # pi_original 
+    log_a = sum(fix(y*log(pi_a))+fix((1-y)*log(1-pi_a)))# log numerator
+    pi_b = expit(beta0 + as.matrix(X[,gamma_b==1]) %*% beta[gamma_b==1]) # pi_original 
+    log_b = sum(fix(y*log(pi_b))+fix((1-y)*log(1-pi_b)))# log numerator
+    log_odds = log_a - log_b
+    u = runif(1)
+    gamma[j] = ifelse(u < expit(log_odds), 1, 0)
+  }
+  return(gamma) 
+}
+
+# initial values
+p=11
+gamma = rep(1, p)
+beta = rep(0, p)
+beta0 = 0
+S = 21000
+B = 1000 # Burn-in
+Gamma = matrix(NA, nrow = S, ncol = p) 
+Beta = matrix(NA, nrow = S, ncol = p) 
+Beta0 = rep(NA, S)
+
+# update parameters
+for(i in 1:S) {
+beta0 = update_beta0(gamma, beta, beta0) 
+beta = update_beta(gamma, beta, beta0) 
+gamma = update_gamma(gamma, beta, beta0) 
+Beta0[i] = beta0
+Beta[i,] = beta
+Gamma[i,] = gamma
+# print(i)
+}
+
+Beta0 = Beta0[-(1:B)]
+Beta = Beta[-(1:B),]
+Gamma = Gamma[-(1:B),]
+```
+
+# 4. Result
+
+# 4.1 Traceplots
+```{r, fig.width=11, fig.height=6}
+
+# Set up plotting area to display 12 plots (6x2 grid for Beta and Beta*Gamma)
+par(mfrow=c(3, 4), mar=c(4, 4, 4, 1))
+
+# Plot traceplot for Beta0
+plot(Beta0, type = 'l',
+     main = expression(paste("Traceplot for ", beta[0])),
+     xlab = "Iteration",
+     ylab = "Value")
+
+# Loop to create traceplots for each of the 11 Beta coefficients
+for(i in 1:11) {
+    plot(Beta[,i], type = 'l', 
+         main = bquote("Traceplot for " ~ beta[.(i)]),
+         xlab = "Iteration",
+         ylab = "Value")
+}
+
+# Calculate Beta*Gamma for the interaction effects
+BG = Beta * Gamma
+
+# Set up plotting area for the interaction effects traceplots (6x2 grid)
+par(mfrow=c(3, 4), mar=c(4, 4, 2, 1))
+
+# Loop to create traceplots for each of the 11 Beta*Gamma interaction effects
+for(i in 1:11) {
+    plot(BG[,i], type = 'l', 
+         main = bquote("Traceplot for " ~ beta[.(i)] * gamma[.(i)]), 
+         xlab = "Iteration", 
+         ylab = bquote(beta[.(i)] * gamma[.(i)]))
+}
+
+# Calculate effective sample size for Beta and Beta*Gamma
+res = rbind(apply(Beta, 2, effectiveSize), 
+            apply(BG, 2, effectiveSize))
+rownames(res) = c('beta', 'beta * gamma') 
+
+# Generate column names for the table dynamically
+col_names <- paste("Predictor", 1:11)
+
+# Output the effective sample size table
+res %>% kable(col.names = col_names,
+              caption = 'Effective Sample Size for each Predictor out of 20000',
+              booktabs = TRUE) # Adds better formatting to the table
+
+```
+## 4.2 Top 5 probability of the interactive terms
+
+```{r}
+top5 = do.call(paste0, as.data.frame(Gamma)) %>% table() %>%
+sort(decreasing = TRUE) %>%
+.[1:5]
+top5/20000
+```
+
+```{r}
+gamma_values <- c("11100110011", "11101110011", "01000110011", "01001110011", "01100110111")
+probabilities <- c(0.20275, 0.13860, 0.10395, 0.05115, 0.04140)
+
+# Combine into a data frame for plotting
+top5_df <- data.frame(Gamma = gamma_values, Probability = probabilities)
+
+# Plot
+barplot(top5_df$Probability, names.arg = top5_df$Gamma,
+        xlab = "Gamma Values", ylab = "Posterior Probability", col = "gray", las = 1)
+```
+
+## 4.3 Posterior distributions of the interactive term
+```{r, fig.width=11, fig.height=7}
+spike_dens = function(dt) {
+  p0 = mean(dt == 0)
+  dens = density(dt[dt!=0])
+  dens$y = dens$y *(1-p0)
+  lim = max(dens$y, p0)
+  plot(dens, ylim = c(0,lim), main = 'Prob. density') 
+segments(0,0,0, p0, lwd = 3)
+}
+par(mfrow=c(4,3))
+spike_dens(BG[,1]) 
+spike_dens(BG[,2]) 
+spike_dens(BG[,3]) 
+spike_dens(BG[,4]) 
+spike_dens(BG[,5])
+spike_dens(BG[,6])
+spike_dens(BG[,7])
+spike_dens(BG[,8])
+spike_dens(BG[,9])
+spike_dens(BG[,10])
+spike_dens(BG[,11])
+```
+
+## 4.4 Model fitting with selected features
+
+```{r}
+# 11100110011
+set.seed(5420)
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit logistic regression model
+cv_logistic_model_1 <- train(quality ~ fixed.acidity + volatile.acidity + citric.acid + free.sulfur.dioxide + total.sulfur.dioxide + sulphates + alcohol, 
+                               data = red_wine_scaled, method = "glm", 
+                               family = binomial, trControl = train_control)
+
+# Summarize the results
+print(cv_logistic_model_1)
+```
+```{r}
+# 11101110011
+set.seed(5420)
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit logistic regression model
+cv_logistic_model_2 <- train(quality ~ fixed.acidity + volatile.acidity + 
+                               citric.acid + chlorides + free.sulfur.dioxide + 
+                               total.sulfur.dioxide + sulphates + alcohol, 
+                             data = red_wine_scaled, method = "glm", 
+                             family = binomial, trControl = train_control)
+
+# Summarize the results
+print(cv_logistic_model_2)
+```
+
+```{r}
+# 01000110011
+set.seed(5420)
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit logistic regression model
+cv_logistic_model_3 <- train(quality ~ volatile.acidity + free.sulfur.dioxide + 
+                               total.sulfur.dioxide + sulphates + alcohol, 
+                             data = red_wine_scaled, method = "glm", 
+                             family = binomial, trControl = train_control)
+
+# Summarize the results
+print(cv_logistic_model_3)
+```
+```{r}
+# 01001110011
+set.seed(5420)
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit logistic regression model
+cv_logistic_model_4 <- train(quality ~ volatile.acidity + chlorides + free.sulfur.dioxide + 
+                               total.sulfur.dioxide + sulphates + alcohol, 
+                             data = red_wine_scaled, method = "glm", 
+                             family = binomial, trControl = train_control)
+
+# Summarize the results
+print(cv_logistic_model_4)
+```
+```{r}
+# 01100110111
+set.seed(5420)
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit logistic regression model
+cv_logistic_model_5 <- train(quality ~ volatile.acidity + citric.acid + free.sulfur.dioxide + 
+                               total.sulfur.dioxide + pH + sulphates + alcohol, 
+                             data = red_wine_scaled, method = "glm", 
+                             family = binomial, trControl = train_control)
+
+# Summarize the results
+print(cv_logistic_model_5)
+```
+
+
