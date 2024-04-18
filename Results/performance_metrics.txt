@@ -1,0 +1,95 @@
+# Baseline model (All features)
+
+Generalized Linear Model 
+
+1599 samples
+  11 predictor
+   2 classes: 'high', 'low' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold) 
+Summary of sample sizes: 1279, 1279, 1279, 1279, 1280 
+Resampling results:
+
+  Accuracy   Kappa   
+  0.7485972  0.495032
+
+# 11100110011 (1 means feature included; 0 means feature not included)
+
+Generalized Linear Model 
+
+1599 samples
+   7 predictor
+   2 classes: 'high', 'low' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold) 
+Summary of sample sizes: 1279, 1279, 1279, 1279, 1280 
+Resampling results:
+
+  Accuracy   Kappa    
+  0.7479683  0.4942358
+
+# 11101110011 (1 means feature included; 0 means feature not included)
+
+Generalized Linear Model 
+
+1599 samples
+   8 predictor
+   2 classes: 'high', 'low' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold) 
+Summary of sample sizes: 1279, 1279, 1279, 1279, 1280 
+Resampling results:
+
+  Accuracy   Kappa    
+  0.7442104  0.4863185
+
+# 01000110011 (1 means feature included; 0 means feature not included)
+
+Generalized Linear Model 
+
+1599 samples
+   5 predictor
+   2 classes: 'high', 'low' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold) 
+Summary of sample sizes: 1279, 1279, 1279, 1279, 1280 
+Resampling results:
+
+  Accuracy   Kappa   
+  0.7460952  0.490671
+
+# 01001110011 (1 means feature included; 0 means feature not included)
+
+Generalized Linear Model 
+
+1599 samples
+   6 predictor
+   2 classes: 'high', 'low' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold) 
+Summary of sample sizes: 1279, 1279, 1279, 1279, 1280 
+Resampling results:
+
+  Accuracy   Kappa    
+  0.7454663  0.4890032
+
+# 01100110111 (1 means feature included; 0 means feature not included)
+
+Generalized Linear Model 
+
+1599 samples
+   7 predictor
+   2 classes: 'high', 'low' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold) 
+Summary of sample sizes: 1279, 1279, 1279, 1279, 1280 
+Resampling results:
+
+  Accuracy   Kappa    
+  0.7460972  0.4902528
