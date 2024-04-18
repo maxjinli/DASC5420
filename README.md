@@ -13,19 +13,19 @@ The traditional approach in feature selection often overlooks the uncertainty as
 
 ## Repository Structure
 
-/DASC5420
-│
-├── data/                   
-│   └── red_wine_scaled    
-│
-├── notebooks/              
-│   └── Model_Training.ipynb# Notebook containing the model training and evaluation process
-│
-├── results/                
-│   ├── traceplots/ 
-│   │   ├── beta_trace.png 
-│   │   └── betagamma_trace.png
-|   └── posterior_betagamma.png
-│   └── performance_metrics.txt 
-│
-└── README.md       
+    /DASC5420
+    │
+    ├── data/                   
+    │   └── red_wine_scaled             # Proprocessed data    
+    │
+    ├── notebooks/              
+    │   └── Model_Training.ipynb        # Project notebook 
+    │
+    ├── results/                
+    │   ├── traceplots/ 
+    │   │   ├── beta_trace.png          # Traceplots of beta
+    │   │   └── betagamma_trace.png     # Traceplots of beta*gamma
+    |   └── posterior_betagamma.png     # Posterior of beta*gamma
+    │   └── performance_metrics.txt     # Model performances
+    │
+    └── README.md 
