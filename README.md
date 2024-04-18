@@ -16,7 +16,7 @@ The traditional approach in feature selection often overlooks the uncertainty as
     /DASC5420
     │
     ├── data/                   
-    │   └── red_wine_scaled             # Proprocessed data    
+    │   └── red_wine_scaled.csv         # Proprocessed data    
     │
     ├── notebooks/              
     │   └── Model_Training.ipynb        # Project notebook 
