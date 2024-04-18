@@ -1,6 +1,6 @@
 ---
 title: "DASC 5420"
-author: "Max Li - T00734084"
+author: "Max Li"
 date: "2024-04-10"
 output: pdf_document
 ---
