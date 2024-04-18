@@ -28,4 +28,6 @@ The traditional approach in feature selection often overlooks the uncertainty as
     |   └── posterior_betagamma.png     # Posterior of beta*gamma
     │   └── performance_metrics.txt     # Model performances
     │
+    ├── DASC_5420_Final_Report.pdf      # Final Report
+    │
     └── README.md 
