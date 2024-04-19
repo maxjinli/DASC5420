@@ -16,18 +16,18 @@ The traditional approach in feature selection often overlooks the uncertainty as
     /DASC5420
     │
     ├── Data/                   
-    │   └── red_wine_scaled.csv         # Proprocessed data    
+    │   └── red_wine_scaled.csv           # Proprocessed data    
     │
     ├── Notebooks/              
-    │   └── Model_Training.ipynb        # Project notebook 
+    │   └── DASC_5420_Final_Project.Rmd   # Project notebook 
     │
     ├── Results/                
     │   ├── traceplots/ 
-    │   │   ├── beta_trace.png          # Traceplots of beta
-    │   │   └── betagamma_trace.png     # Traceplots of beta*gamma
-    |   └── posterior_betagamma.png     # Posterior of beta*gamma
-    │   └── performance_metrics.txt     # Model performances
+    │   │   ├── beta_trace.png            # Traceplots of beta
+    │   │   └── betagamma_trace.png       # Traceplots of beta*gamma
+    |   └── posterior_betagamma.png       # Posterior of beta*gamma
+    │   └── performance_metrics.txt       # Model performances
     │
-    ├── DASC_5420_Final_Report.pdf      # Final Report
+    ├── DASC_5420_Final_Report.pdf        # Final Report
     │
     └── README.md 
